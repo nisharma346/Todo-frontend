@@ -1,0 +1,197 @@
+/* ── theme.css ─────────────────────────────────────────────
+   Dark-mode overrides for the Todo app.
+   Applied when <body> carries the class "dark".
+   Light mode = default (no class needed).
+──────────────────────────────────────────────────────────── */
+
+/* ── Smooth transitions ── */
+body {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* ── Page shell ── */
+body.dark {
+  background-color: #0f1117;
+  color: #e2e8f0;
+}
+
+body.dark #root {
+  border-color: #2d3148;
+}
+
+/* ── Header ── */
+body.dark .app-header {
+  background: #1a1d2e !important;
+  border-bottom: 1px solid #2d3148;
+}
+
+/* ── Main container ── */
+body.dark main {
+  color: #e2e8f0;
+}
+
+/* ── Headings inside main ── */
+body.dark main h2,
+body.dark main h3 {
+  color: #f1f5f9;
+}
+
+/* ── Text inputs & date pickers ── */
+body.dark .todo-input,
+body.dark .todo-select,
+body.dark input[type="date"] {
+  background: #1e2235 !important;
+  border-color: #3a3f5c !important;
+  color: #e2e8f0 !important;
+  color-scheme: dark;
+}
+
+body.dark .todo-input::placeholder {
+  color: #64748b;
+}
+
+/* ── Task list card ── */
+body.dark .todo-item {
+  background: #1e2235 !important;
+  border-left-color: #3b82f6 !important;
+}
+
+body.dark .todo-item div,
+body.dark .todo-item span:not(.badge) {
+  color: #e2e8f0;
+}
+
+/* ── Inline edit input inside task card ── */
+body.dark .todo-item input[type="text"] {
+  background: #252a3d !important;
+  border-color: #3a3f5c !important;
+  color: #e2e8f0 !important;
+}
+
+/* ── Category / Priority badges ── */
+body.dark .badge-meta {
+  background: #2d3148 !important;
+  color: #cbd5e1 !important;
+}
+
+/* ── Filter buttons (All / Completed / Pending) ── */
+body.dark .filter-btn {
+  border-color: #3a3f5c !important;
+  background: #1e2235 !important;
+  color: #cbd5e1 !important;
+}
+body.dark .filter-btn.active {
+  background: #007bff !important;
+  color: #fff !important;
+}
+
+/* ── Stat cards ── */
+body.dark .stat-card {
+  background: #1e2235 !important;
+  border-color: #2d3148 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+}
+
+/* ── Message / status paragraph ── */
+body.dark p[role="status"] {
+  color: #94a3b8;
+}
+
+/* ── Login / signup form link-style button ── */
+body.dark p > button {
+  color: #60a5fa;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+/* ── Logout & secondary buttons ── */
+body.dark .btn-logout {
+  background: #374151 !important;
+}
+
+/* ── Toggle button (shared) ── */
+.theme-toggle {
+  background: transparent;
+  border: 1.5px solid rgba(255,255,255,0.55);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.theme-toggle:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ── Sort & Per-page labels ── */
+body.dark label {
+  color: #94a3b8 !important;
+}
+
+/* ── Pagination controls ── */
+body.dark .page-btn {
+  background: #1d4ed8 !important;
+  color: #fff !important;
+}
+body.dark .page-btn:disabled {
+  background: #374151 !important;
+}
+body.dark .page-indicator {
+  color: #94a3b8 !important;
+}
+
+/* ── Profile panel ── */
+body.dark .profile-panel {
+  background: #1e2235 !important;
+  border-color: #2d3148 !important;
+}
+
+body.dark .profile-info-row span {
+  color: #e2e8f0 !important;
+}
+
+body.dark .profile-divider {
+  border-top-color: #2d3148 !important;
+}
+
+body.dark .btn-profile {
+  background: #5b2d8e !important;
+}
+
+/* ── Reminder bell button ── */
+body.dark .reminder-bell {
+  border-color: rgba(255,255,255,0.4) !important;
+}
+body.dark .reminder-bell:hover {
+  background: rgba(255,255,255,0.12) !important;
+}
+
+/* ── Reminder dropdown panel ── */
+body.dark .reminder-panel {
+  background: #1e2235 !important;
+  border-color: #2d3148 !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+}
+
+body.dark .reminder-panel-header {
+  background: #1a1d2e !important;
+  border-bottom: 1px solid #2d3148;
+}
+
+body.dark .reminder-item {
+  border-bottom-color: #2d3148 !important;
+}
+
+body.dark .reminder-task-name {
+  color: #e2e8f0 !important;
+}
+
+body.dark .reminder-empty {
+  color: #64748b !important;
+}
