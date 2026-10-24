@@ -43,7 +43,17 @@ function Header({ darkMode, onToggle, reminderTasks = [] }) {
         position: 'relative',   // anchor for the dropdown panel
       }}
     >
-      <h2 className="app-header-title" style={{ margin: 0, fontSize: '20px' }}>📝 My Secure Todo Application</h2>
+      <div className="header-brand">
+        <span className="header-brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M8 4.75h8a2 2 0 0 1 2 2v12.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6.75a2 2 0 0 1 2-2Z" />
+            <path d="M9 4.75a1.75 1.75 0 0 1 1.75-1.75h2.5A1.75 1.75 0 0 1 15 4.75v2H9v-2Z" />
+            <path d="m9 13 1.5 1.5L14 11" />
+            <path d="M9 17h6" />
+          </svg>
+        </span>
+        <h2 className="app-header-title" style={{ margin: 0, fontSize: '20px' }}>My Secure Todo Application</h2>
+      </div>
 
       {/* Right-side controls */}
       <div className="header-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

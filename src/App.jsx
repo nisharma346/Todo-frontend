@@ -477,7 +477,7 @@ function App() {
           </>
         ) : (
           <>
-            <h3>Naya Task Jodein</h3>
+            <h3 className="task-section-heading">Naya Task Jodein</h3>
 
             <form onSubmit={handleAddTask} className="task-form">
               <input
@@ -536,7 +536,10 @@ function App() {
                 className="btn-profile"
                 style={{ ...buttonStyle, background: '#6c3483', flex: 1 }}
               >
-                👤 Profile
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                </svg>
+                Profile
               </button>
               <button
                 type="button"
@@ -544,6 +547,10 @@ function App() {
                 className="btn-logout"
                 style={{ ...buttonStyle, background: '#555', flex: 1 }}
               >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 17l5-5-5-5M15 12H3" />
+                  <path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" />
+                </svg>
                 Logout
               </button>
             </div>
@@ -633,25 +640,25 @@ function App() {
                 <div style={{ fontSize: '22px', fontWeight: '700', color: '#007bff' }}>
                   {stats.total}
                 </div>
-                <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Total</div>
+                <div className="summary-label" style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Total Tasks</div>
               </div>
               <div style={{ ...statCardStyle, borderTop: '3px solid #198754' }} className="stat-card">
                 <div style={{ fontSize: '22px', fontWeight: '700', color: '#198754' }}>
                   {stats.completed}
                 </div>
-                <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Completed</div>
+                <div className="summary-label" style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Completed Tasks</div>
               </div>
               <div style={{ ...statCardStyle, borderTop: '3px solid #ffc107' }} className="stat-card">
                 <div style={{ fontSize: '22px', fontWeight: '700', color: '#b38600' }}>
                   {stats.pending}
                 </div>
-                <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Pending</div>
+                <div className="summary-label" style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Pending Tasks</div>
               </div>
               <div style={{ ...statCardStyle, borderTop: '3px solid #dc3545' }} className="stat-card">
                 <div style={{ fontSize: '22px', fontWeight: '700', color: '#dc3545' }}>
                   {stats.overdue}
                 </div>
-                <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Overdue</div>
+                <div className="summary-label" style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Overdue Tasks</div>
               </div>
             </div>
 
@@ -711,9 +718,24 @@ function App() {
                           tick={{ fill: 'var(--analytics-text)', fontSize: 12 }}
                         />
                         <Tooltip />
-                        <Bar dataKey="tasks" name="Tasks" fill="#007bff" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="tasks" name="Tasks" radius={[4, 4, 0, 0]}>
+                          {priorityChartData.map((entry) => (
+                            <Cell
+                              key={entry.priority}
+                              fill={priorityColors[entry.priority]}
+                            />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
+                  </div>
+                  <div className="priority-legend">
+                    {priorityChartData.map((entry) => (
+                      <span key={entry.priority}>
+                        <i style={{ backgroundColor: priorityColors[entry.priority] }} />
+                        {entry.priority}: {entry.tasks}
+                      </span>
+                    ))}
                   </div>
                 </article>
 
@@ -846,7 +868,7 @@ function App() {
                 </li>
               ) : (
                 pagedTodos.map((todo) => (
-                  <li key={todo._id} style={todoStyle} className="todo-item">
+                  <li key={todo._id} style={todoStyle} className="todo-item task-item-card">
 
                     {/* Checkbox — standalone flex item */}
                     <input
@@ -1053,6 +1075,7 @@ const buttonStyle = {
 
 const priorityOptions = ['High', 'Medium', 'Low'];
 const categoryOptions = ['Personal', 'Work', 'Shopping', 'Others'];
+const priorityColors = { High: '#dc3545', Medium: '#e3a008', Low: '#198754' };
 
 const selectStyle = {
   boxSizing: 'border-box',
