@@ -9,6 +9,95 @@ body {
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
+button,
+input,
+select {
+  max-width: 100%;
+}
+
+button {
+  min-height: 40px;
+  touch-action: manipulation;
+}
+
+input,
+select {
+  min-width: 0;
+}
+
+.app-main {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.task-form {
+  display: grid !important;
+  grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.task-form > .todo-input {
+  min-width: 0;
+}
+
+.task-field {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.task-field .todo-select {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+}
+
+.task-add-button {
+  white-space: nowrap;
+}
+
+.controls-row > label {
+  min-width: 0;
+}
+
+.controls-row select {
+  max-width: 100%;
+}
+
+.todo-item {
+  min-width: 0;
+}
+
+.task-actions {
+  flex-wrap: wrap;
+}
+
+.analytics-section,
+.analytics-grid,
+.analytics-card,
+.analytics-plot {
+  min-width: 0;
+}
+
+.app-header {
+  min-width: 0;
+  gap: 12px;
+}
+
+.app-header-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.header-controls {
+  flex: 0 0 auto;
+}
+
+.reminder-panel {
+  width: min(300px, calc(100vw - 24px)) !important;
+  max-width: calc(100vw - 24px);
+}
+
 /* ── Page shell ── */
 body.dark {
   background-color: #0f1117;
@@ -90,6 +179,299 @@ body.dark .stat-card {
   background: #1e2235 !important;
   border-color: #2d3148 !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+}
+
+/* ── Analytics charts ── */
+.analytics-section {
+  margin-top: 22px;
+  --analytics-text: #555;
+}
+
+.analytics-section > h3 {
+  margin-bottom: 10px;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analytics-card {
+  min-width: 0;
+  height: 300px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--analytics-text);
+}
+
+.analytics-card h4 {
+  margin: 0;
+  color: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.analytics-plot {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+}
+
+.analytics-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+}
+
+.analytics-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 12px;
+}
+
+.analytics-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.analytics-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.completion-chart {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.completion-chart svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.completion-track,
+.completion-progress {
+  fill: none;
+  stroke-width: 10;
+}
+
+.completion-track {
+  stroke: #e9ecef;
+}
+
+.completion-progress {
+  stroke: #198754;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.completion-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.completion-label strong {
+  font-size: 24px;
+}
+
+.completion-label span {
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+body.dark .analytics-section {
+  --analytics-text: #cbd5e1;
+}
+
+body.dark .analytics-card {
+  border-color: #2d3148;
+  background: #1e2235;
+}
+
+body.dark .completion-track {
+  stroke: #3a3f5c;
+}
+
+@media (max-width: 700px) {
+  .analytics-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analytics-card {
+    height: 290px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .task-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .task-form > .todo-input {
+    grid-column: 1 / -1;
+  }
+
+  .task-add-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .app-main {
+    margin: 20px auto !important;
+    padding: 12px !important;
+  }
+
+  .task-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .task-form > .todo-input {
+    grid-column: 1 / -1;
+  }
+
+  .task-field {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 4px !important;
+  }
+
+  .task-add-button {
+    align-self: end;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .controls-row {
+    align-items: stretch !important;
+  }
+
+  .controls-row > label {
+    flex: 1 1 145px;
+    flex-wrap: wrap;
+  }
+
+  .controls-row select {
+    flex: 1 1 100%;
+  }
+
+  .todo-item {
+    flex-wrap: wrap !important;
+  }
+
+  .todo-item > div:nth-child(2) {
+    flex: 1 1 calc(100% - 32px) !important;
+  }
+
+  .task-actions {
+    width: calc(100% - 28px);
+    justify-content: flex-end;
+    margin-left: 28px;
+  }
+
+  .app-main button,
+  .header-controls button {
+    min-height: 44px;
+  }
+
+  .task-actions button,
+  .page-btn {
+    min-height: 44px;
+  }
+
+  .pagination-controls {
+    gap: 8px !important;
+  }
+
+  .pagination-controls .page-indicator {
+    flex: 1 1 100%;
+    order: -1;
+    text-align: center;
+  }
+
+  .app-header {
+    flex-wrap: wrap;
+    justify-content: center !important;
+    padding: 10px 12px !important;
+  }
+
+  .app-header-title {
+    flex: 1 1 100%;
+    font-size: 18px !important;
+    text-align: center;
+  }
+
+  .header-controls {
+    justify-content: center;
+  }
+
+  .reminder-container {
+    position: static !important;
+  }
+
+  .reminder-panel {
+    top: calc(100% + 8px) !important;
+    right: 8px !important;
+    left: auto !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .app-main {
+    padding: 10px !important;
+  }
+
+  .task-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .task-form > .todo-input {
+    grid-column: auto;
+  }
+
+  .task-add-button {
+    width: 100%;
+  }
+
+  .filters-row {
+    gap: 4px !important;
+  }
+
+  .filters-row .filter-btn {
+    min-width: 0;
+    font-size: 12px !important;
+  }
+
+  .pagination-controls {
+    justify-content: space-between !important;
+  }
 }
 
 /* ── Message / status paragraph ── */

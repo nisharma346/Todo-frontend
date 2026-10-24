@@ -43,13 +43,13 @@ function Header({ darkMode, onToggle, reminderTasks = [] }) {
         position: 'relative',   // anchor for the dropdown panel
       }}
     >
-      <h2 style={{ margin: 0, fontSize: '20px' }}>📝 My Secure Todo Application</h2>
+      <h2 className="app-header-title" style={{ margin: 0, fontSize: '20px' }}>📝 My Secure Todo Application</h2>
 
       {/* Right-side controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="header-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
         {/* ── Bell / Reminder indicator ── */}
-        <div style={{ position: 'relative' }} ref={bellRef}>
+        <div className="reminder-container" style={{ position: 'relative' }} ref={bellRef}>
           <button
             className="reminder-bell"
             onClick={() => setShowReminder((v) => !v)}

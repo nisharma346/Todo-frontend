@@ -1,6 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
 import Header from './Header';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import './theme.css';
 
 const API_URL = 'http://localhost:3000/api';
@@ -352,6 +364,26 @@ function App() {
     pending:   todos.filter((t) => !t.isCompleted).length,
     overdue:   todos.filter((t) => isOverdue(t)).length,
   };
+  const completionPercentage = stats.total
+    ? Math.round((stats.completed / stats.total) * 100)
+    : 0;
+  const statusChartData = [
+    { name: 'Completed', value: stats.completed, color: '#198754' },
+    { name: 'Pending', value: stats.pending, color: '#ffc107' },
+  ];
+  const priorityChartData = priorityOptions.map((priority) => ({
+    priority,
+    tasks: todos.filter((todo) => (todo.priority || 'Medium') === priority).length,
+  }));
+  const categoryCounts = todos.reduce((counts, todo) => {
+    const category = todo.category || 'Personal';
+    counts[category] = (counts[category] || 0) + 1;
+    return counts;
+  }, {});
+  const categoryChartData = Object.entries(categoryCounts).map(([category, tasks]) => ({
+    category,
+    tasks,
+  }));
 
   // ── Reminder tasks: incomplete tasks that are overdue OR due within 24 hours ──
   // Uses the same YYYY-MM-DD string comparison as isOverdue() for consistency.
@@ -391,8 +423,8 @@ function App() {
     <div>
       <Header darkMode={darkMode} onToggle={handleToggleDark} reminderTasks={reminderTasks} />
 
-      <main style={{
-        maxWidth: '440px',
+      <main className="app-main" style={{
+        maxWidth: token ? '1100px' : '440px',
         margin: '35px auto',
         padding: '16px',
         fontFamily: 'Arial, sans-serif'
@@ -447,7 +479,7 @@ function App() {
           <>
             <h3>Naya Task Jodein</h3>
 
-            <form onSubmit={handleAddTask} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <form onSubmit={handleAddTask} className="task-form">
               <input
                 value={taskInput}
                 onChange={(e) => setTaskInput(e.target.value)}
@@ -455,7 +487,7 @@ function App() {
                 className="todo-input"
                 style={{ ...inputStyle, flex: '1 1 160px', marginBottom: 0 }}
               />
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#555', fontSize: '13px' }}>
+              <label className="task-field" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#555', fontSize: '13px' }}>
                 Category
                 <select
                   aria-label="Task category"
@@ -469,7 +501,7 @@ function App() {
                   ))}
                 </select>
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#555', fontSize: '13px' }}>
+              <label className="task-field" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#555', fontSize: '13px' }}>
                 Priority
                 <select
                   aria-label="Task priority"
@@ -483,7 +515,7 @@ function App() {
                   ))}
                 </select>
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#555', fontSize: '13px' }}>
+              <label className="task-field" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#555', fontSize: '13px' }}>
                 Due
                 <input
                   type="date"
@@ -493,7 +525,7 @@ function App() {
                   style={{ ...selectStyle, marginBottom: 0 }}
                 />
               </label>
-              <button type="submit" style={buttonStyle}>Add</button>
+              <button type="submit" className="task-add-button" style={buttonStyle}>Add</button>
             </form>
 
             {/* ── Action button row: Profile + Logout ── */}
@@ -591,7 +623,7 @@ function App() {
             )}
 
             {/* ── Stats Dashboard ── */}
-            <div style={{
+            <div className="stats-grid" style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(4, 1fr)',
               gap: '8px',
@@ -623,6 +655,127 @@ function App() {
               </div>
             </div>
 
+            <section className="analytics-section" aria-labelledby="analytics-heading">
+              <h3 id="analytics-heading">Task Analytics</h3>
+              <div className="analytics-grid">
+                <article className="analytics-card">
+                  <h4>Completed vs Pending</h4>
+                  {stats.total > 0 ? (
+                    <div className="analytics-plot">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={statusChartData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={48}
+                            outerRadius={76}
+                            paddingAngle={3}
+                          >
+                            {statusChartData.map((entry) => (
+                              <Cell key={entry.name} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="analytics-plot analytics-empty">Add tasks to see this chart.</div>
+                  )}
+                  <div className="analytics-legend">
+                    {statusChartData.map((entry) => (
+                      <span key={entry.name}>
+                        <i style={{ backgroundColor: entry.color }} />
+                        {entry.name}: {entry.value}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="analytics-card">
+                  <h4>Tasks by Priority</h4>
+                  <div className="analytics-plot">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={priorityChartData} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis
+                          dataKey="priority"
+                          interval={0}
+                          tick={{ fill: 'var(--analytics-text)', fontSize: 12 }}
+                          tickMargin={8}
+                        />
+                        <YAxis
+                          allowDecimals={false}
+                          width={36}
+                          tick={{ fill: 'var(--analytics-text)', fontSize: 12 }}
+                        />
+                        <Tooltip />
+                        <Bar dataKey="tasks" name="Tasks" fill="#007bff" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </article>
+
+                <article className="analytics-card">
+                  <h4>Tasks by Category</h4>
+                  {categoryChartData.length > 0 ? (
+                    <div className="analytics-plot">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={categoryChartData}
+                          layout="vertical"
+                          margin={{ top: 8, right: 12, bottom: 8, left: 8 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                          <XAxis type="number" allowDecimals={false} tick={{ fill: 'var(--analytics-text)' }} />
+                          <YAxis
+                            dataKey="category"
+                            type="category"
+                            width={96}
+                            tick={{ fill: 'var(--analytics-text)', fontSize: 12 }}
+                          />
+                          <Tooltip />
+                          <Bar dataKey="tasks" name="Tasks" fill="#6f42c1" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="analytics-plot analytics-empty">Add tasks to see this chart.</div>
+                  )}
+                </article>
+
+                <article className="analytics-card completion-card">
+                  <h4>Task Completion</h4>
+                  <div className="analytics-plot">
+                    <div
+                      className="completion-chart"
+                      role="img"
+                      aria-label={`${completionPercentage}% complete: ${stats.completed} of ${stats.total} tasks`}
+                    >
+                      <svg viewBox="0 0 120 120" aria-hidden="true">
+                        <circle className="completion-track" cx="60" cy="60" r="48" />
+                        <circle
+                          className="completion-progress"
+                          cx="60"
+                          cy="60"
+                          r="48"
+                          style={{
+                            strokeDasharray: 2 * Math.PI * 48,
+                            strokeDashoffset: 2 * Math.PI * 48 * (1 - completionPercentage / 100),
+                          }}
+                        />
+                      </svg>
+                      <div className="completion-label">
+                        <strong>{completionPercentage}%</strong>
+                        <span>{stats.completed} of {stats.total}</span>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
             {/* Search, Sort and Filter Controls */}
             <div style={{ marginTop: '20px' }}>
               <input
@@ -633,7 +786,7 @@ function App() {
                 className="todo-input"
                 style={inputStyle}
               />
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+              <div className="filters-row" style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
                 {['all', 'completed', 'pending'].map((status) => (
                   <button
                     key={status}
@@ -653,7 +806,7 @@ function App() {
               </div>
 
               {/* Sort + Page-size row */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4px' }}>
+              <div className="controls-row" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#555' }}>
                   Sort:
                   <select
@@ -783,7 +936,7 @@ function App() {
                     </div>
 
                     {/* Action buttons — shrink-proof */}
-                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                    <div className="task-actions" style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                       {editingId === todo._id ? (
                         <>
                           <button
@@ -826,7 +979,7 @@ function App() {
 
             {/* ── Pagination Controls ── */}
             {sortedTodos.length > 0 && (
-              <div style={{
+              <div className="pagination-controls" style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1007,5 +1160,3 @@ const profileRowStyle = {
 };
 
 export default App;
-
-
