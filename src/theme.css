@@ -32,7 +32,7 @@ select {
 
 .task-form {
   display: grid !important;
-  grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: minmax(140px, 2fr) minmax(140px, 2fr) repeat(4, minmax(0, 1fr)) auto;
   align-items: end;
   gap: 8px;
 }
@@ -66,6 +66,13 @@ select {
 
 .todo-item {
   min-width: 0;
+}
+
+.task-description {
+  margin: 2px 0 6px;
+  color: #687386;
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .task-actions {
@@ -684,6 +691,10 @@ body.dark .task-item-card {
   background: #1e2235 !important;
 }
 
+body.dark .task-description {
+  color: #a4b0c2;
+}
+
 @media (min-width: 701px) and (max-width: 1024px) {
   .app-main {
     padding-right: 20px !important;
@@ -895,6 +906,57 @@ body.dark p > button {
   background: transparent;
   border: none;
   cursor: pointer;
+}
+
+.dashboard-view-nav {
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dashboard-view-button {
+  min-height: 40px;
+  padding: 8px 15px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.dashboard-view-button:hover {
+  background: #edf3ff;
+  color: #245ab3;
+}
+
+.dashboard-view-button.active {
+  border-color: #d8e5fb;
+  background: #eaf1ff;
+  color: #245ab3;
+}
+
+.dashboard-view-button:focus-visible {
+  outline: 3px solid #78a8ff;
+  outline-offset: 2px;
+}
+
+body.dark .dashboard-view-nav {
+  border-bottom-color: #343b51;
+}
+
+body.dark .dashboard-view-button {
+  color: #a4b0c2;
+}
+
+body.dark .dashboard-view-button:hover,
+body.dark .dashboard-view-button.active {
+  border-color: #3d5278;
+  background: #202f4c;
+  color: #bfdbfe;
 }
 
 /* ── Logout & secondary buttons ── */

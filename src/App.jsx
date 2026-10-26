@@ -1,6 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './Header';
+import CalendarView from './CalendarView';
+import KanbanBoard from './KanbanBoard';
 import {
   Bar,
   BarChart,
@@ -16,6 +18,14 @@ import {
 import './theme.css';
 
 const API_URL = 'http://localhost:3000/api';
+const recurrenceOptions = [
+  { value: 'none', label: 'Does Not Repeat' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+];
+const recurrenceLabel = (value) =>
+  recurrenceOptions.find((option) => option.value === value)?.label || 'Does Not Repeat';
 
 function App() {
   const [mode, setMode] = useState('login');
@@ -23,14 +33,18 @@ function App() {
   const [password, setPassword] = useState('');
   const [token, setToken] = useState(localStorage.getItem('todoToken') || '');
   const [taskInput, setTaskInput] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
   const [taskCategory, setTaskCategory] = useState('Personal');
   const [taskPriority, setTaskPriority] = useState('Medium');
+  const [taskRecurrence, setTaskRecurrence] = useState('none');
   const [todos, setTodos] = useState([]);
   const [message, setMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editTask, setEditTask] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [editCategory, setEditCategory] = useState('Personal');
   const [editPriority, setEditPriority] = useState('Medium');
+  const [editRecurrence, setEditRecurrence] = useState('none');
   const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [taskDueDate, setTaskDueDate] = useState('');
@@ -41,6 +55,9 @@ function App() {
   const [sortBy, setSortBy] = useState('newest');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+  const [activeView, setActiveView] = useState('tasks');
+  const [updatingTaskIds, setUpdatingTaskIds] = useState(() => new Set());
+  const updatingTaskIdsRef = useRef(new Set());
 
   // ── Profile / Change-Password panel state ────────────────────────────────
   const [showProfile, setShowProfile] = useState(false);
@@ -80,7 +97,7 @@ function App() {
   // Timezone-safe overdue check: compare YYYY-MM-DD strings so same-day tasks
   // are never wrongly flagged as overdue due to time-of-day differences.
   const isOverdue = (todo) => {
-    if (!todo.dueDate || todo.isCompleted) return false;
+    if (!todo.dueDate || todo.isCompleted || todo.status === 'completed') return false;
     const todayStr = new Date().toISOString().slice(0, 10);       // 'YYYY-MM-DD'
     const dueStr = new Date(todo.dueDate).toISOString().slice(0, 10); // 'YYYY-MM-DD'
     return dueStr < todayStr;
@@ -91,8 +108,10 @@ function App() {
       const data = await request('/todos');
       setTodos(Array.isArray(data) ? data : []);
       setMessage('');
+      return true;
     } catch (error) {
       setMessage(error.message);
+      return false;
     }
   };
 
@@ -139,16 +158,20 @@ function App() {
         method: 'POST',
         body: JSON.stringify({
           task: taskInput.trim(),
+          description: taskDescription.trim(),
           category: taskCategory,
           priority: taskPriority,
           dueDate: taskDueDate || undefined,
+          recurrence: taskRecurrence,
         }),
       });
 
       setTaskInput('');
+      setTaskDescription('');
       setTaskCategory('Personal');
       setTaskPriority('Medium');
       setTaskDueDate('');
+      setTaskRecurrence('none');
       setMessage('Task successfully add ho gaya!');
       await fetchTodos();
     } catch (error) {
@@ -157,14 +180,91 @@ function App() {
   };
 
   const handleToggle = async (todo) => {
+    const isCompleted = !(todo.isCompleted || todo.status === 'completed');
     try {
       await request(`/todos/${todo._id}`, {
         method: 'PUT',
-        body: JSON.stringify({ isCompleted: !todo.isCompleted }),
+        body: JSON.stringify({
+          isCompleted,
+          status: isCompleted ? 'completed' : 'todo',
+        }),
       });
-      await fetchTodos();
+      const createsNextOccurrence =
+        isCompleted && todo.recurrence && todo.recurrence !== 'none';
+      if (createsNextOccurrence) {
+        setFilterStatus('all');
+        setSortBy('newest');
+        setCurrentPage(1);
+      }
+      const refreshed = await fetchTodos();
+      if (createsNextOccurrence && refreshed) {
+        setMessage(
+          `Task completed. Next ${recurrenceLabel(todo.recurrence).toLowerCase()} occurrence added.`
+        );
+      }
     } catch (error) {
+      await fetchTodos();
       setMessage(error.message);
+    }
+  };
+
+  const handleKanbanStatusChange = async (id, status) => {
+    const permittedStatuses = ['todo', 'inProgress', 'completed'];
+    if (!permittedStatuses.includes(status) || updatingTaskIdsRef.current.has(id)) {
+      return;
+    }
+
+    const previousTodo = todos.find((todo) => todo._id === id);
+    if (!previousTodo) return;
+    const previousStatus = previousTodo.isCompleted || previousTodo.status === 'completed'
+      ? 'completed'
+      : previousTodo.status === 'inProgress'
+        ? 'inProgress'
+        : 'todo';
+    if (previousStatus === status) return;
+
+    updatingTaskIdsRef.current.add(id);
+    setUpdatingTaskIds(new Set(updatingTaskIdsRef.current));
+    setTodos((currentTodos) =>
+      currentTodos.map((todo) =>
+        todo._id === id
+          ? { ...todo, status, isCompleted: status === 'completed' }
+          : todo
+      )
+    );
+
+    try {
+      await request(`/todos/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          status,
+          isCompleted: status === 'completed',
+        }),
+      });
+      const updatedTodos = await request('/todos');
+      const savedTodo = Array.isArray(updatedTodos)
+        ? updatedTodos.find((todo) => todo._id === id)
+        : null;
+      const savedStatus = savedTodo
+        ? savedTodo.isCompleted || savedTodo.status === 'completed'
+          ? 'completed'
+          : savedTodo.status === 'inProgress'
+            ? 'inProgress'
+            : 'todo'
+        : null;
+      if (savedStatus !== status) {
+        throw new Error('The server did not save this status. Please try again.');
+      }
+      setTodos(updatedTodos);
+    } catch (error) {
+      setTodos((currentTodos) =>
+        currentTodos.map((todo) => (todo._id === id ? previousTodo : todo))
+      );
+      await fetchTodos();
+      setMessage(`Could not update task status: ${error.message}`);
+    } finally {
+      updatingTaskIdsRef.current.delete(id);
+      setUpdatingTaskIds(new Set(updatingTaskIdsRef.current));
     }
   };
 
@@ -181,8 +281,10 @@ function App() {
   const handleEdit = (todo) => {
     setEditingId(todo._id);
     setEditTask(todo.task);
+    setEditDescription(todo.description || '');
     setEditCategory(todo.category || 'Personal');
     setEditPriority(todo.priority || 'Medium');
+    setEditRecurrence(todo.recurrence || 'none');
     // Convert stored ISO date → 'YYYY-MM-DD' for the date input value
     setEditDueDate(
       todo.dueDate ? new Date(todo.dueDate).toISOString().slice(0, 10) : ''
@@ -201,17 +303,21 @@ function App() {
         method: 'PUT',
         body: JSON.stringify({
           task: editTask.trim(),
+          description: editDescription.trim(),
           category: editCategory,
           priority: editPriority,
           dueDate: editDueDate || null,   // null clears a previously set date
+          recurrence: editRecurrence,
         }),
       });
 
       setEditingId(null);
       setEditTask('');
+      setEditDescription('');
       setEditCategory('Personal');
       setEditPriority('Medium');
       setEditDueDate('');
+      setEditRecurrence('none');
       setMessage('Task successfully update ho gaya!');
       await fetchTodos();
     } catch (error) {
@@ -222,9 +328,11 @@ function App() {
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditTask('');
+    setEditDescription('');
     setEditCategory('Personal');
     setEditPriority('Medium');
     setEditDueDate('');
+    setEditRecurrence('none');
     setMessage('');
   };
 
@@ -236,11 +344,16 @@ function App() {
     setPassword('');
     setSearchText('');
     setFilterStatus('all');
+    setTaskDescription('');
     setTaskDueDate('');
+    setTaskRecurrence('none');
+    setEditDescription('');
+    setEditRecurrence('none');
     setEditDueDate('');
     setSortBy('newest');
     setCurrentPage(1);
     setPageSize(5);
+    setActiveView('tasks');
     // Reset profile panel too
     setShowProfile(false);
     setProfileUsername('');
@@ -318,8 +431,8 @@ function App() {
       filterStatus === 'all'
         ? true
         : filterStatus === 'completed'
-        ? todo.isCompleted === true
-        : todo.isCompleted === false;
+          ? todo.isCompleted === true || todo.status === 'completed'
+          : todo.isCompleted !== true && todo.status !== 'completed';
     return matchesSearch && matchesFilter;
   });
 
@@ -359,10 +472,10 @@ function App() {
 
   // Derived stats — recalculated whenever todos changes, zero new state needed
   const stats = {
-    total:     todos.length,
-    completed: todos.filter((t) => t.isCompleted).length,
-    pending:   todos.filter((t) => !t.isCompleted).length,
-    overdue:   todos.filter((t) => isOverdue(t)).length,
+    total: todos.length,
+    completed: todos.filter((t) => t.isCompleted || t.status === 'completed').length,
+    pending: todos.filter((t) => !t.isCompleted && t.status !== 'completed').length,
+    overdue: todos.filter((t) => isOverdue(t)).length,
   };
   const completionPercentage = stats.total
     ? Math.round((stats.completed / stats.total) * 100)
@@ -397,7 +510,7 @@ function App() {
 
     return todos
       .filter((t) => {
-        if (t.isCompleted || !t.dueDate) return false;
+        if (t.isCompleted || t.status === 'completed' || !t.dueDate) return false;
         const dueStr = new Date(t.dueDate).toISOString().slice(0, 10);
         // Include if overdue (past today) OR due today OR due within next 24h
         return dueStr <= next24hStr;
@@ -405,11 +518,11 @@ function App() {
       .map((t) => {
         const dueStr = new Date(t.dueDate).toISOString().slice(0, 10);
         return {
-          _id:     t._id,
-          task:    t.task,
+          _id: t._id,
+          task: t.task,
           dueStr,
           // 'overdue' = strictly before today; 'today' = today; 'soon' = tomorrow window
-          status:  dueStr < todayStr ? 'overdue' : dueStr === todayStr ? 'today' : 'soon',
+          status: dueStr < todayStr ? 'overdue' : dueStr === todayStr ? 'today' : 'soon',
         };
       })
       // Sort: overdue first, then today, then soon; within each group by date asc
@@ -418,6 +531,19 @@ function App() {
         return rank[a.status] - rank[b.status] || a.dueStr.localeCompare(b.dueStr);
       });
   })();
+
+  const handleCalendarEdit = (todo) => {
+    const newestFirst = [...todos].sort(
+      (a, b) => new Date(b.createdAt || b._id) - new Date(a.createdAt || a._id)
+    );
+    const taskIndex = newestFirst.findIndex((task) => task._id === todo._id);
+    setActiveView('tasks');
+    setSearchText('');
+    setFilterStatus('all');
+    setSortBy('newest');
+    setCurrentPage(taskIndex >= 0 ? Math.floor(taskIndex / pageSize) + 1 : 1);
+    handleEdit(todo);
+  };
 
   return (
     <div>
@@ -487,6 +613,14 @@ function App() {
                 className="todo-input"
                 style={{ ...inputStyle, flex: '1 1 160px', marginBottom: 0 }}
               />
+              <input
+                value={taskDescription}
+                onChange={(e) => setTaskDescription(e.target.value)}
+                placeholder="Description (optional)"
+                aria-label="Task description"
+                className="todo-input"
+                style={{ ...inputStyle, flex: '1 1 160px', marginBottom: 0 }}
+              />
               <label className="task-field" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#555', fontSize: '13px' }}>
                 Category
                 <select
@@ -524,6 +658,20 @@ function App() {
                   className="todo-select"
                   style={{ ...selectStyle, marginBottom: 0 }}
                 />
+              </label>
+              <label className="task-field" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#555', fontSize: '13px' }}>
+                Repeat
+                <select
+                  aria-label="Task recurrence"
+                  value={taskRecurrence}
+                  onChange={(e) => setTaskRecurrence(e.target.value)}
+                  className="todo-select"
+                  style={{ ...selectStyle, marginBottom: 0 }}
+                >
+                  {recurrenceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </label>
               <button type="submit" className="task-add-button" style={buttonStyle}>Add</button>
             </form>
@@ -798,249 +946,323 @@ function App() {
               </div>
             </section>
 
-            {/* Search, Sort and Filter Controls */}
-            <div style={{ marginTop: '20px' }}>
-              <input
-                type="text"
-                value={searchText}
-                onChange={(e) => changeAndReset(setSearchText)(e.target.value)}
-                placeholder="Search tasks..."
-                className="todo-input"
-                style={inputStyle}
+            <nav className="dashboard-view-nav" aria-label="Dashboard views">
+              <button
+                type="button"
+                className={`dashboard-view-button${activeView === 'tasks' ? ' active' : ''}`}
+                aria-current={activeView === 'tasks' ? 'page' : undefined}
+                onClick={() => setActiveView('tasks')}
+              >
+                Task List
+              </button>
+              <button
+                type="button"
+                className={`dashboard-view-button${activeView === 'kanban' ? ' active' : ''}`}
+                aria-current={activeView === 'kanban' ? 'page' : undefined}
+                onClick={() => setActiveView('kanban')}
+              >
+                Kanban Board
+              </button>
+              <button
+                type="button"
+                className={`dashboard-view-button${activeView === 'calendar' ? ' active' : ''}`}
+                aria-current={activeView === 'calendar' ? 'page' : undefined}
+                onClick={() => setActiveView('calendar')}
+              >
+                Calendar
+              </button>
+            </nav>
+
+            {activeView === 'calendar' ? (
+              <CalendarView
+                todos={todos}
+                isOverdue={isOverdue}
+                onEdit={handleCalendarEdit}
               />
-              <div className="filters-row" style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                {['all', 'completed', 'pending'].map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => changeAndReset(setFilterStatus)(status)}
-                    className={`filter-btn${filterStatus === status ? ' active' : ''}`}
-                    style={{
-                      ...filterBtnStyle,
-                      background: filterStatus === status ? '#007bff' : '#e9ecef',
-                      color: filterStatus === status ? '#fff' : '#333',
-                      fontWeight: filterStatus === status ? '600' : '400',
-                    }}
-                  >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              {/* Sort + Page-size row */}
-              <div className="controls-row" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#555' }}>
-                  Sort:
-                  <select
-                    aria-label="Sort tasks"
-                    value={sortBy}
-                    onChange={(e) => changeAndReset(setSortBy)(e.target.value)}
-                    className="todo-select"
-                    style={{ ...selectStyle, fontSize: '13px' }}
-                  >
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="priority">Priority: High → Low</option>
-                    <option value="dueDate">Due Date: Earliest First</option>
-                  </select>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#555' }}>
-                  Per page:
-                  <select
-                    aria-label="Tasks per page"
-                    value={pageSize}
-                    onChange={(e) => changeAndReset(setPageSize)(Number(e.target.value))}
-                    className="todo-select"
-                    style={{ ...selectStyle, fontSize: '13px' }}
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <ul style={{ listStyle: 'none', padding: 0, marginTop: '12px' }}>
-              {pagedTodos.length === 0 ? (
-                <li style={{ textAlign: 'center', color: '#888', padding: '20px 0' }}>
-                  No tasks found.
-                </li>
-              ) : (
-                pagedTodos.map((todo) => (
-                  <li key={todo._id} style={todoStyle} className="todo-item task-item-card">
-
-                    {/* Checkbox — standalone flex item */}
-                    <input
-                      type="checkbox"
-                      checked={todo.isCompleted}
-                      onChange={() => handleToggle(todo)}
-                      style={{ flexShrink: 0, marginTop: '2px', cursor: 'pointer' }}
-                    />
-
-                    {/* Task content — takes all remaining width */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {editingId === todo._id ? (
-                        <>
-                          <input
-                            type="text"
-                            value={editTask}
-                            onChange={(e) => setEditTask(e.target.value)}
-                            autoFocus
-                            style={{
-                              width: '100%',
-                              boxSizing: 'border-box',
-                              padding: '6px 8px',
-                              border: '1px solid #ccc',
-                              borderRadius: '4px',
-                              marginBottom: '6px',
-                            }}
-                          />
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            <select
-                              aria-label="Edit task category"
-                              value={editCategory}
-                              onChange={(e) => setEditCategory(e.target.value)}
-                              className="todo-select"
-                              style={selectStyle}
-                            >
-                              {categoryOptions.map((cat) => (
-                                <option key={cat} value={cat}>{cat}</option>
-                              ))}
-                            </select>
-                            <select
-                              aria-label="Edit task priority"
-                              value={editPriority}
-                              onChange={(e) => setEditPriority(e.target.value)}
-                              className="todo-select"
-                              style={selectStyle}
-                            >
-                              {priorityOptions.map((p) => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
-                            <input
-                              type="date"
-                              value={editDueDate}
-                              onChange={(e) => setEditDueDate(e.target.value)}
-                              className="todo-select"
-                              style={selectStyle}
-                              aria-label="Edit due date"
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div
-                            style={{
-                              textDecoration: todo.isCompleted ? 'line-through' : 'none',
-                              wordBreak: 'break-word',
-                              overflowWrap: 'anywhere',
-                              marginBottom: '4px',
-                            }}
-                          >
-                            {todo.task}
-                          </div>
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <span style={categoryStyle} className="badge badge-meta">Category: {todo.category || 'Personal'}</span>
-                            <span style={priorityStyle} className="badge badge-meta">Priority: {todo.priority || 'Medium'}</span>
-                            {todo.dueDate && (
-                              <span style={dueDateStyle}>
-                                Due: {new Date(todo.dueDate).toLocaleDateString()}
-                              </span>
-                            )}
-                            {isOverdue(todo) && (
-                              <span style={overdueStyle}>Overdue</span>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Action buttons — shrink-proof */}
-                    <div className="task-actions" style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                      {editingId === todo._id ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleSaveEdit(todo._id)}
-                            style={{ ...buttonStyle, background: '#198754' }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelEdit}
-                            style={{ ...buttonStyle, background: '#6c757d' }}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(todo)}
-                          style={{ ...buttonStyle, background: '#ffc107', color: '#222' }}
-                        >
-                          Edit
-                        </button>
-                      )}
+            ) : activeView === 'kanban' ? (
+              <KanbanBoard
+                todos={todos}
+                isOverdue={isOverdue}
+                updatingIds={updatingTaskIds}
+                onStatusChange={handleKanbanStatusChange}
+                onEdit={handleCalendarEdit}
+                onDelete={handleDelete}
+              />
+            ) : (
+              <>
+                {/* Search, Sort and Filter Controls */}
+                <div style={{ marginTop: '20px' }}>
+                  <input
+                    type="text"
+                    value={searchText}
+                    onChange={(e) => changeAndReset(setSearchText)(e.target.value)}
+                    placeholder="Search tasks..."
+                    className="todo-input"
+                    style={inputStyle}
+                  />
+                  <div className="filters-row" style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                    {['all', 'completed', 'pending'].map((status) => (
                       <button
+                        key={status}
                         type="button"
-                        onClick={() => handleDelete(todo._id)}
-                        style={{ ...buttonStyle, background: '#dc3545' }}
+                        onClick={() => changeAndReset(setFilterStatus)(status)}
+                        className={`filter-btn${filterStatus === status ? ' active' : ''}`}
+                        style={{
+                          ...filterBtnStyle,
+                          background: filterStatus === status ? '#007bff' : '#e9ecef',
+                          color: filterStatus === status ? '#fff' : '#333',
+                          fontWeight: filterStatus === status ? '600' : '400',
+                        }}
                       >
-                        Delete
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
                       </button>
-                    </div>
+                    ))}
+                  </div>
 
-                  </li>
-                ))
-              )}
-            </ul>
+                  {/* Sort + Page-size row */}
+                  <div className="controls-row" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#555' }}>
+                      Sort:
+                      <select
+                        aria-label="Sort tasks"
+                        value={sortBy}
+                        onChange={(e) => changeAndReset(setSortBy)(e.target.value)}
+                        className="todo-select"
+                        style={{ ...selectStyle, fontSize: '13px' }}
+                      >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="priority">Priority: High → Low</option>
+                        <option value="dueDate">Due Date: Earliest First</option>
+                      </select>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#555' }}>
+                      Per page:
+                      <select
+                        aria-label="Tasks per page"
+                        value={pageSize}
+                        onChange={(e) => changeAndReset(setPageSize)(Number(e.target.value))}
+                        className="todo-select"
+                        style={{ ...selectStyle, fontSize: '13px' }}
+                      >
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
 
-            {/* ── Pagination Controls ── */}
-            {sortedTodos.length > 0 && (
-              <div className="pagination-controls" style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                marginTop: '12px',
-                flexWrap: 'wrap',
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={safePage === 1}
-                  className="page-btn"
-                  style={{
-                    ...paginationBtnStyle,
-                    opacity: safePage === 1 ? 0.4 : 1,
-                    cursor: safePage === 1 ? 'default' : 'pointer',
-                  }}
-                >
-                  ← Previous
-                </button>
-                <span style={{ fontSize: '13px', color: '#555' }} className="page-indicator">
-                  Page {safePage} of {totalPages}
-                  &nbsp;·&nbsp;
-                  {sortedTodos.length} task{sortedTodos.length !== 1 ? 's' : ''}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={safePage === totalPages}
-                  className="page-btn"
-                  style={{
-                    ...paginationBtnStyle,
-                    opacity: safePage === totalPages ? 0.4 : 1,
-                    cursor: safePage === totalPages ? 'default' : 'pointer',
-                  }}
-                >
-                  Next →
-                </button>
-              </div>
+                <ul style={{ listStyle: 'none', padding: 0, marginTop: '12px' }}>
+                  {pagedTodos.length === 0 ? (
+                    <li style={{ textAlign: 'center', color: '#888', padding: '20px 0' }}>
+                      No tasks found.
+                    </li>
+                  ) : (
+                    pagedTodos.map((todo) => (
+                      <li key={todo._id} style={todoStyle} className="todo-item task-item-card">
+
+                        {/* Checkbox — standalone flex item */}
+                        <input
+                          type="checkbox"
+                          checked={todo.isCompleted || todo.status === 'completed'}
+                          onChange={() => handleToggle(todo)}
+                          style={{ flexShrink: 0, marginTop: '2px', cursor: 'pointer' }}
+                        />
+
+                        {/* Task content — takes all remaining width */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {editingId === todo._id ? (
+                            <>
+                              <input
+                                type="text"
+                                value={editTask}
+                                onChange={(e) => setEditTask(e.target.value)}
+                                autoFocus
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '6px 8px',
+                                  border: '1px solid #ccc',
+                                  borderRadius: '4px',
+                                  marginBottom: '6px',
+                                }}
+                              />
+                              <input
+                                type="text"
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                placeholder="Description (optional)"
+                                aria-label="Edit task description"
+                                className="todo-input"
+                                style={{ ...inputStyle, marginBottom: '6px' }}
+                              />
+                              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                <select
+                                  aria-label="Edit task category"
+                                  value={editCategory}
+                                  onChange={(e) => setEditCategory(e.target.value)}
+                                  className="todo-select"
+                                  style={selectStyle}
+                                >
+                                  {categoryOptions.map((cat) => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                  ))}
+                                </select>
+                                <select
+                                  aria-label="Edit task priority"
+                                  value={editPriority}
+                                  onChange={(e) => setEditPriority(e.target.value)}
+                                  className="todo-select"
+                                  style={selectStyle}
+                                >
+                                  {priorityOptions.map((p) => (
+                                    <option key={p} value={p}>{p}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="date"
+                                  value={editDueDate}
+                                  onChange={(e) => setEditDueDate(e.target.value)}
+                                  className="todo-select"
+                                  style={selectStyle}
+                                  aria-label="Edit due date"
+                                />
+                                <select
+                                  aria-label="Edit task recurrence"
+                                  value={editRecurrence}
+                                  onChange={(e) => setEditRecurrence(e.target.value)}
+                                  className="todo-select"
+                                  style={selectStyle}
+                                >
+                                  {recurrenceOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div
+                                style={{
+                                  textDecoration: todo.isCompleted || todo.status === 'completed' ? 'line-through' : 'none',
+                                  wordBreak: 'break-word',
+                                  overflowWrap: 'anywhere',
+                                  marginBottom: '4px',
+                                }}
+                              >
+                                {todo.task}
+                              </div>
+                              {todo.description && (
+                                <p className="task-description">{todo.description}</p>
+                              )}
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span style={categoryStyle} className="badge badge-meta">Category: {todo.category || 'Personal'}</span>
+                                <span style={priorityStyle} className="badge badge-meta">Priority: {todo.priority || 'Medium'}</span>
+                                {todo.recurrence && todo.recurrence !== 'none' && (
+                                  <span style={categoryStyle} className="badge badge-meta">
+                                    Repeats: {recurrenceLabel(todo.recurrence)}
+                                  </span>
+                                )}
+                                {todo.dueDate && (
+                                  <span style={dueDateStyle}>
+                                    Due: {new Date(todo.dueDate).toLocaleDateString()}
+                                  </span>
+                                )}
+                                {isOverdue(todo) && (
+                                  <span style={overdueStyle}>Overdue</span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Action buttons — shrink-proof */}
+                        <div className="task-actions" style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                          {editingId === todo._id ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEdit(todo._id)}
+                                style={{ ...buttonStyle, background: '#198754' }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEdit}
+                                style={{ ...buttonStyle, background: '#6c757d' }}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(todo)}
+                              style={{ ...buttonStyle, background: '#ffc107', color: '#222' }}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(todo._id)}
+                            style={{ ...buttonStyle, background: '#dc3545' }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+
+                      </li>
+                    ))
+                  )}
+                </ul>
+
+                {/* ── Pagination Controls ── */}
+                {sortedTodos.length > 0 && (
+                  <div className="pagination-controls" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    marginTop: '12px',
+                    flexWrap: 'wrap',
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={safePage === 1}
+                      className="page-btn"
+                      style={{
+                        ...paginationBtnStyle,
+                        opacity: safePage === 1 ? 0.4 : 1,
+                        cursor: safePage === 1 ? 'default' : 'pointer',
+                      }}
+                    >
+                      ← Previous
+                    </button>
+                    <span style={{ fontSize: '13px', color: '#555' }} className="page-indicator">
+                      Page {safePage} of {totalPages}
+                      &nbsp;·&nbsp;
+                      {sortedTodos.length} task{sortedTodos.length !== 1 ? 's' : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={safePage === totalPages}
+                      className="page-btn"
+                      style={{
+                        ...paginationBtnStyle,
+                        opacity: safePage === totalPages ? 0.4 : 1,
+                        cursor: safePage === totalPages ? 'default' : 'pointer',
+                      }}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
