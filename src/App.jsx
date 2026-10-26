@@ -1,8 +1,10 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Header from './Header';
 import CalendarView from './CalendarView';
 import KanbanBoard from './KanbanBoard';
+import PomodoroTimer from './PomodoroTimer.jsx';
+import ProductivityDashboard from './ProductivityDashboard.jsx';
 import {
   Bar,
   BarChart,
@@ -38,6 +40,9 @@ function App() {
   const [taskPriority, setTaskPriority] = useState('Medium');
   const [taskRecurrence, setTaskRecurrence] = useState('none');
   const [todos, setTodos] = useState([]);
+  const [productivity, setProductivity] = useState(null);
+  const [productivityLoading, setProductivityLoading] = useState(false);
+  const [productivityError, setProductivityError] = useState('');
   const [message, setMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editTask, setEditTask] = useState('');
@@ -75,8 +80,10 @@ function App() {
 
   const handleToggleDark = () => setDarkMode((prev) => !prev);
 
-  const request = async (path, options = {}) => {
-    const response = await fetch(`${API_URL}${path}`, {
+  const request = useCallback(async (path, options = {}) => {
+    const url = `${API_URL}${path}`;
+    const method = options.method || 'GET';
+    const response = await fetch(url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -85,14 +92,23 @@ function App() {
       },
     });
 
-    const data = await response.json().catch(() => ({}));
+    const responseText = await response.text();
+    let data = {};
+    if (responseText) {
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = { message: responseText };
+      }
+    }
 
     if (!response.ok) {
-      throw new Error(data.message || `Request failed (${response.status})`);
+      const detail = data.message ? `: ${data.message}` : '';
+      throw new Error(`Request failed: ${method} ${url} (${response.status})${detail}`);
     }
 
     return data;
-  };
+  }, [token]);
 
   // Timezone-safe overdue check: compare YYYY-MM-DD strings so same-day tasks
   // are never wrongly flagged as overdue due to time-of-day differences.
@@ -103,7 +119,7 @@ function App() {
     return dueStr < todayStr;
   };
 
-  const fetchTodos = async () => {
+  const fetchTodos = useCallback(async () => {
     try {
       const data = await request('/todos');
       setTodos(Array.isArray(data) ? data : []);
@@ -113,11 +129,69 @@ function App() {
       setMessage(error.message);
       return false;
     }
-  };
+  }, [request]);
+
+  const fetchProductivity = useCallback(async () => {
+    setProductivityLoading(true);
+    setProductivityError('');
+    try {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      const data = await request(`/productivity?timeZone=${encodeURIComponent(timeZone)}`);
+      setProductivity(data);
+      return true;
+    } catch (error) {
+      setProductivityError(error.message);
+      return false;
+    } finally {
+      setProductivityLoading(false);
+    }
+  }, [request]);
 
   useEffect(() => {
-    if (token) fetchTodos();
-  }, [token]);
+    if (!token) return;
+    fetchTodos();
+    fetchProductivity();
+  }, [token, fetchTodos, fetchProductivity]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+
+    let midnightTimeout;
+    const scheduleNextDayRefresh = () => {
+      const now = new Date();
+      const nextMidnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1
+      );
+      midnightTimeout = window.setTimeout(() => {
+        fetchProductivity();
+        scheduleNextDayRefresh();
+      }, nextMidnight.getTime() - now.getTime() + 250);
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') fetchProductivity();
+    };
+
+    scheduleNextDayRefresh();
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearTimeout(midnightTimeout);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [token, fetchProductivity]);
+
+  const handleSaveDailyGoal = async (dailyGoal) => {
+    const data = await request('/productivity/goal', {
+      method: 'PUT',
+      body: JSON.stringify({ dailyGoal }),
+    });
+    setProductivity((current) =>
+      current ? { ...current, dailyGoal: data.dailyGoal } : current
+    );
+  };
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -197,6 +271,7 @@ function App() {
         setCurrentPage(1);
       }
       const refreshed = await fetchTodos();
+      if (isCompleted) await fetchProductivity();
       if (createsNextOccurrence && refreshed) {
         setMessage(
           `Task completed. Next ${recurrenceLabel(todo.recurrence).toLowerCase()} occurrence added.`
@@ -256,6 +331,7 @@ function App() {
         throw new Error('The server did not save this status. Please try again.');
       }
       setTodos(updatedTodos);
+      if (status === 'completed') await fetchProductivity();
     } catch (error) {
       setTodos((currentTodos) =>
         currentTodos.map((todo) => (todo._id === id ? previousTodo : todo))
@@ -340,6 +416,8 @@ function App() {
     localStorage.removeItem('todoToken');
     setToken('');
     setTodos([]);
+    setProductivity(null);
+    setProductivityError('');
     setUsername('');
     setPassword('');
     setSearchText('');
@@ -971,9 +1049,38 @@ function App() {
               >
                 Calendar
               </button>
+              <button
+                type="button"
+                className={`dashboard-view-button${activeView === 'focus' ? ' active' : ''}`}
+                aria-current={activeView === 'focus' ? 'page' : undefined}
+                onClick={() => setActiveView('focus')}
+              >
+                Focus Timer
+              </button>
+              <button
+                type="button"
+                className={`dashboard-view-button${activeView === 'productivity' ? ' active' : ''}`}
+                aria-current={activeView === 'productivity' ? 'page' : undefined}
+                onClick={() => setActiveView('productivity')}
+              >
+                Productivity
+              </button>
             </nav>
 
-            {activeView === 'calendar' ? (
+            <div hidden={activeView !== 'focus'}>
+              <PomodoroTimer todos={todos} />
+            </div>
+
+            {activeView === 'focus' || activeView === 'productivity' ? (
+              activeView === 'productivity' ? (
+                <ProductivityDashboard
+                  stats={productivity}
+                  loading={productivityLoading}
+                  error={productivityError}
+                  onSaveGoal={handleSaveDailyGoal}
+                />
+              ) : null
+            ) : activeView === 'calendar' ? (
               <CalendarView
                 todos={todos}
                 isOverdue={isOverdue}

@@ -1,0 +1,425 @@
+.productivity-page {
+  --productivity-chart-text: #69758b;
+  margin-top: 22px;
+  padding: clamp(18px, 4vw, 30px);
+  border: 1px solid #e0e6f0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 34px rgba(31, 49, 91, 0.08);
+  color: #26334d;
+}
+
+.productivity-header,
+.productivity-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.productivity-header {
+  margin-bottom: 22px;
+}
+
+.productivity-header h2 {
+  margin: 3px 0 6px;
+  color: #1e2b4a;
+  font-size: clamp(23px, 4vw, 30px);
+}
+
+.productivity-header p,
+.productivity-panel-heading p {
+  margin: 0;
+  color: #71809a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.productivity-header .productivity-eyebrow {
+  color: #5268c7;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+
+.productivity-loading {
+  color: #75829a;
+  font-size: 12px;
+}
+
+.productivity-error {
+  color: #b42332;
+  font-size: 13px;
+}
+
+.productivity-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.productivity-stat-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 3px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e7ebf3;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #fff, #f8f9fd);
+}
+
+.productivity-stat-icon {
+  grid-row: span 2;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 11px;
+  background: #edf0ff;
+  color: #5268c7;
+  font-size: 20px;
+}
+
+.productivity-stat-card > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.productivity-stat-card strong {
+  color: #263657;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.productivity-stat-card > div span {
+  color: #56647b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.productivity-stat-card small {
+  color: #8a95a8;
+  font-size: 11px;
+}
+
+.productivity-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+}
+
+.productivity-panel {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e5eaf2;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.productivity-panel h3 {
+  margin: 0 0 5px;
+  color: #273550;
+  font-size: 16px;
+}
+
+.productivity-panel-heading {
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.daily-goal-count,
+.weekly-summary-total {
+  flex: 0 0 auto;
+  color: #3449a4;
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.daily-goal-count i {
+  color: #aab3c2;
+  font-size: 15px;
+  font-style: normal;
+}
+
+.daily-goal-progress-track {
+  height: 11px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #e9edf5;
+}
+
+.daily-goal-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #5369c7, #7b8ce1);
+  transition: width 0.3s ease;
+}
+
+.daily-goal-message {
+  min-height: 20px;
+  margin: 10px 0 18px;
+  color: #53637d;
+  font-size: 13px;
+}
+
+.daily-goal-form {
+  padding-top: 14px;
+  border-top: 1px solid #edf0f5;
+}
+
+.daily-goal-form label {
+  display: block;
+  margin-bottom: 7px;
+  color: #4f5e76;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.daily-goal-form > div {
+  display: flex;
+  gap: 8px;
+}
+
+.daily-goal-form input {
+  width: 90px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #dce3ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #344258;
+}
+
+.daily-goal-form button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #3449a4;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.daily-goal-form button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.daily-goal-form small {
+  display: block;
+  margin-top: 7px;
+  color: #8792a4;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.weekly-chart {
+  width: 100%;
+  height: 210px;
+}
+
+.productivity-empty {
+  display: grid;
+  min-height: 160px;
+  place-items: center;
+  margin: 0;
+  color: #8994a6;
+  font-size: 13px;
+  text-align: center;
+}
+
+.achievements-panel {
+  margin-top: 14px;
+}
+
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.achievement-card {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #e7ebf3;
+  border-radius: 12px;
+  background: #fafbfe;
+}
+
+.achievement-card.unlocked {
+  border-color: #dce4ff;
+  background: linear-gradient(145deg, #f9faff, #f0f3ff);
+}
+
+.achievement-card.locked {
+  opacity: 0.7;
+}
+
+.achievement-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8ecfb;
+  color: #5268c7;
+  font-size: 19px;
+}
+
+.achievement-card h4 {
+  margin: 0 0 4px;
+  color: #35425d;
+  font-size: 13px;
+}
+
+.achievement-card p {
+  margin: 0 0 5px;
+  color: #7b879b;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.achievement-card small {
+  color: #5268c7;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.achievement-card.locked small {
+  color: #8994a6;
+}
+
+.achievement-empty {
+  min-height: 86px;
+}
+
+.productivity-footnote {
+  margin: 14px 2px 0;
+  color: #8994a6;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.productivity-page button:focus-visible,
+.productivity-page input:focus-visible {
+  outline: 3px solid #8ea1ff;
+  outline-offset: 2px;
+}
+
+body.dark .productivity-page,
+body.dark .productivity-panel {
+  border-color: #2d3450;
+  background: #1e2235;
+  color: #e2e8f0;
+}
+
+body.dark .productivity-header h2,
+body.dark .productivity-panel h3 {
+  color: #f1f5f9;
+}
+
+body.dark .productivity-header > div > p:not(.productivity-eyebrow),
+body.dark .productivity-panel-heading p,
+body.dark .daily-goal-message {
+  color: #a3aec2;
+}
+
+body.dark .productivity-stat-card {
+  border-color: #343b56;
+  background: linear-gradient(145deg, #22283d, #1b2032);
+}
+
+body.dark .productivity-stat-card strong,
+body.dark .productivity-stat-card > div span,
+body.dark .achievement-card h4 {
+  color: #e5eaf5;
+}
+
+body.dark .productivity-stat-icon,
+body.dark .achievement-mark {
+  background: #303957;
+  color: #b8c5ff;
+}
+
+body.dark .productivity-panel,
+body.dark .achievement-card,
+body.dark .achievement-card.unlocked {
+  border-color: #343b56;
+  background-color: #1e2235;
+}
+
+body.dark .achievement-card.unlocked {
+  background: linear-gradient(145deg, #252b45, #20253a);
+}
+
+body.dark .achievement-card p,
+body.dark .achievement-card.locked small,
+body.dark .productivity-stat-card small,
+body.dark .productivity-footnote {
+  color: #a3aec2;
+}
+
+body.dark .daily-goal-progress-track {
+  background: #343b56;
+}
+
+body.dark .daily-goal-form {
+  border-color: #343b56;
+}
+
+body.dark .daily-goal-form label {
+  color: #cbd5e1;
+}
+
+body.dark .daily-goal-form input {
+  border-color: #3a425d;
+  background: #252a3d;
+  color: #e2e8f0;
+  color-scheme: dark;
+}
+
+body.dark .productivity-page .recharts-cartesian-grid line {
+  stroke: #3a425d;
+}
+
+@media (max-width: 720px) {
+  .productivity-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .productivity-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .productivity-header {
+    flex-direction: column;
+  }
+
+  .achievement-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .productivity-stat-card {
+    padding: 13px;
+  }
+
+  .productivity-panel {
+    padding: 14px;
+  }
+}
