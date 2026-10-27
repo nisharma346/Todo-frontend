@@ -1,23 +1,13 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import Header from './Header';
-import CalendarView from './CalendarView';
-import KanbanBoard from './KanbanBoard';
-import PomodoroTimer from './PomodoroTimer.jsx';
-import ProductivityDashboard from './ProductivityDashboard.jsx';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import './theme.css';
+
+const CalendarView = lazy(() => import('./CalendarView.jsx'));
+const KanbanBoard = lazy(() => import('./KanbanBoard.jsx'));
+const PomodoroTimer = lazy(() => import('./PomodoroTimer.jsx'));
+const ProductivityDashboard = lazy(() => import('./ProductivityDashboard.jsx'));
+const TaskAnalytics = lazy(() => import('./TaskAnalytics.jsx'));
 
 const API_URL = 'http://localhost:3000/api';
 const recurrenceOptions = [
@@ -34,6 +24,9 @@ function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [token, setToken] = useState(localStorage.getItem('todoToken') || '');
+  const [todayStr, setTodayStr] = useState(
+    () => new Date().toISOString().slice(0, 10)
+  );
   const [taskInput, setTaskInput] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [taskCategory, setTaskCategory] = useState('Personal');
@@ -41,7 +34,7 @@ function App() {
   const [taskRecurrence, setTaskRecurrence] = useState('none');
   const [todos, setTodos] = useState([]);
   const [productivity, setProductivity] = useState(null);
-  const [productivityLoading, setProductivityLoading] = useState(false);
+  const [productivityLoading, setProductivityLoading] = useState(() => Boolean(token));
   const [productivityError, setProductivityError] = useState('');
   const [message, setMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -61,6 +54,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [activeView, setActiveView] = useState('tasks');
+  const [hasVisitedFocus, setHasVisitedFocus] = useState(false);
   const [updatingTaskIds, setUpdatingTaskIds] = useState(() => new Set());
   const updatingTaskIdsRef = useRef(new Set());
 
@@ -114,7 +108,6 @@ function App() {
   // are never wrongly flagged as overdue due to time-of-day differences.
   const isOverdue = (todo) => {
     if (!todo.dueDate || todo.isCompleted || todo.status === 'completed') return false;
-    const todayStr = new Date().toISOString().slice(0, 10);       // 'YYYY-MM-DD'
     const dueStr = new Date(todo.dueDate).toISOString().slice(0, 10); // 'YYYY-MM-DD'
     return dueStr < todayStr;
   };
@@ -148,15 +141,42 @@ function App() {
   }, [request]);
 
   useEffect(() => {
-    if (!token) return;
-    fetchTodos();
-    fetchProductivity();
-  }, [token, fetchTodos, fetchProductivity]);
+    if (!token) return undefined;
+
+    let cancelled = false;
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+    request('/todos')
+      .then((data) => {
+        if (cancelled) return;
+        setTodos(Array.isArray(data) ? data : []);
+        setMessage('');
+      })
+      .catch((error) => {
+        if (!cancelled) setMessage(error.message);
+      });
+
+    request(`/productivity?timeZone=${encodeURIComponent(timeZone)}`)
+      .then((data) => {
+        if (!cancelled) setProductivity(data);
+      })
+      .catch((error) => {
+        if (!cancelled) setProductivityError(error.message);
+      })
+      .finally(() => {
+        if (!cancelled) setProductivityLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, request]);
 
   useEffect(() => {
     if (!token) return undefined;
 
     let midnightTimeout;
+    let utcMidnightTimeout;
     const scheduleNextDayRefresh = () => {
       const now = new Date();
       const nextMidnight = new Date(
@@ -169,15 +189,32 @@ function App() {
         scheduleNextDayRefresh();
       }, nextMidnight.getTime() - now.getTime() + 250);
     };
+    const scheduleUtcDateRefresh = () => {
+      const now = new Date();
+      const nextUtcMidnight = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1
+      );
+      utcMidnightTimeout = window.setTimeout(() => {
+        setTodayStr(new Date().toISOString().slice(0, 10));
+        scheduleUtcDateRefresh();
+      }, nextUtcMidnight - now.getTime() + 250);
+    };
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') fetchProductivity();
+      if (document.visibilityState === 'visible') {
+        setTodayStr(new Date().toISOString().slice(0, 10));
+        fetchProductivity();
+      }
     };
 
     scheduleNextDayRefresh();
+    scheduleUtcDateRefresh();
     window.addEventListener('focus', refreshWhenVisible);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       window.clearTimeout(midnightTimeout);
+      window.clearTimeout(utcMidnightTimeout);
       window.removeEventListener('focus', refreshWhenVisible);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
@@ -211,6 +248,8 @@ function App() {
         setMode('login');
       } else {
         localStorage.setItem('todoToken', data.token);
+        setProductivityLoading(true);
+        setProductivityError('');
         setToken(data.token);
         setMessage('Login successful!');
       }
@@ -417,6 +456,7 @@ function App() {
     setToken('');
     setTodos([]);
     setProductivity(null);
+    setProductivityLoading(false);
     setProductivityError('');
     setUsername('');
     setPassword('');
@@ -579,10 +619,9 @@ function App() {
   // ── Reminder tasks: incomplete tasks that are overdue OR due within 24 hours ──
   // Uses the same YYYY-MM-DD string comparison as isOverdue() for consistency.
   const reminderTasks = (() => {
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
-    // "next 24 hours" ceiling: the calendar date 24h from now
-    const next24hStr = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+    const next24hStr = new Date(
+      Date.parse(`${todayStr}T00:00:00.000Z`) + 24 * 60 * 60 * 1000
+    )
       .toISOString()
       .slice(0, 10);
 
@@ -888,141 +927,22 @@ function App() {
               </div>
             </div>
 
-            <section className="analytics-section" aria-labelledby="analytics-heading">
-              <h3 id="analytics-heading">Task Analytics</h3>
-              <div className="analytics-grid">
-                <article className="analytics-card">
-                  <h4>Completed vs Pending</h4>
-                  {stats.total > 0 ? (
-                    <div className="analytics-plot">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={statusChartData}
-                            dataKey="value"
-                            nameKey="name"
-                            innerRadius={48}
-                            outerRadius={76}
-                            paddingAngle={3}
-                          >
-                            {statusChartData.map((entry) => (
-                              <Cell key={entry.name} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="analytics-plot analytics-empty">Add tasks to see this chart.</div>
-                  )}
-                  <div className="analytics-legend">
-                    {statusChartData.map((entry) => (
-                      <span key={entry.name}>
-                        <i style={{ backgroundColor: entry.color }} />
-                        {entry.name}: {entry.value}
-                      </span>
-                    ))}
-                  </div>
-                </article>
-
-                <article className="analytics-card">
-                  <h4>Tasks by Priority</h4>
-                  <div className="analytics-plot">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={priorityChartData} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis
-                          dataKey="priority"
-                          interval={0}
-                          tick={{ fill: 'var(--analytics-text)', fontSize: 12 }}
-                          tickMargin={8}
-                        />
-                        <YAxis
-                          allowDecimals={false}
-                          width={36}
-                          tick={{ fill: 'var(--analytics-text)', fontSize: 12 }}
-                        />
-                        <Tooltip />
-                        <Bar dataKey="tasks" name="Tasks" radius={[4, 4, 0, 0]}>
-                          {priorityChartData.map((entry) => (
-                            <Cell
-                              key={entry.priority}
-                              fill={priorityColors[entry.priority]}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="priority-legend">
-                    {priorityChartData.map((entry) => (
-                      <span key={entry.priority}>
-                        <i style={{ backgroundColor: priorityColors[entry.priority] }} />
-                        {entry.priority}: {entry.tasks}
-                      </span>
-                    ))}
-                  </div>
-                </article>
-
-                <article className="analytics-card">
-                  <h4>Tasks by Category</h4>
-                  {categoryChartData.length > 0 ? (
-                    <div className="analytics-plot">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={categoryChartData}
-                          layout="vertical"
-                          margin={{ top: 8, right: 12, bottom: 8, left: 8 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                          <XAxis type="number" allowDecimals={false} tick={{ fill: 'var(--analytics-text)' }} />
-                          <YAxis
-                            dataKey="category"
-                            type="category"
-                            width={96}
-                            tick={{ fill: 'var(--analytics-text)', fontSize: 12 }}
-                          />
-                          <Tooltip />
-                          <Bar dataKey="tasks" name="Tasks" fill="#6f42c1" radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="analytics-plot analytics-empty">Add tasks to see this chart.</div>
-                  )}
-                </article>
-
-                <article className="analytics-card completion-card">
-                  <h4>Task Completion</h4>
-                  <div className="analytics-plot">
-                    <div
-                      className="completion-chart"
-                      role="img"
-                      aria-label={`${completionPercentage}% complete: ${stats.completed} of ${stats.total} tasks`}
-                    >
-                      <svg viewBox="0 0 120 120" aria-hidden="true">
-                        <circle className="completion-track" cx="60" cy="60" r="48" />
-                        <circle
-                          className="completion-progress"
-                          cx="60"
-                          cy="60"
-                          r="48"
-                          style={{
-                            strokeDasharray: 2 * Math.PI * 48,
-                            strokeDashoffset: 2 * Math.PI * 48 * (1 - completionPercentage / 100),
-                          }}
-                        />
-                      </svg>
-                      <div className="completion-label">
-                        <strong>{completionPercentage}%</strong>
-                        <span>{stats.completed} of {stats.total}</span>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              </div>
-            </section>
+            <Suspense
+              fallback={
+                <section className="analytics-section" aria-labelledby="analytics-heading">
+                  <h3 id="analytics-heading">Task Analytics</h3>
+                  <p role="status">Loading task analytics…</p>
+                </section>
+              }
+            >
+              <TaskAnalytics
+                stats={stats}
+                completionPercentage={completionPercentage}
+                statusChartData={statusChartData}
+                priorityChartData={priorityChartData}
+                categoryChartData={categoryChartData}
+              />
+            </Suspense>
 
             <nav className="dashboard-view-nav" aria-label="Dashboard views">
               <button
@@ -1053,7 +973,10 @@ function App() {
                 type="button"
                 className={`dashboard-view-button${activeView === 'focus' ? ' active' : ''}`}
                 aria-current={activeView === 'focus' ? 'page' : undefined}
-                onClick={() => setActiveView('focus')}
+                onClick={() => {
+                  setHasVisitedFocus(true);
+                  setActiveView('focus');
+                }}
               >
                 Focus Timer
               </button>
@@ -1068,33 +991,43 @@ function App() {
             </nav>
 
             <div hidden={activeView !== 'focus'}>
-              <PomodoroTimer todos={todos} />
+              {hasVisitedFocus && (
+                <Suspense fallback={<p role="status">Loading focus timer…</p>}>
+                  <PomodoroTimer todos={todos} />
+                </Suspense>
+              )}
             </div>
 
             {activeView === 'focus' || activeView === 'productivity' ? (
               activeView === 'productivity' ? (
-                <ProductivityDashboard
-                  stats={productivity}
-                  loading={productivityLoading}
-                  error={productivityError}
-                  onSaveGoal={handleSaveDailyGoal}
-                />
+                <Suspense fallback={<p role="status">Loading productivity…</p>}>
+                  <ProductivityDashboard
+                    stats={productivity}
+                    loading={productivityLoading}
+                    error={productivityError}
+                    onSaveGoal={handleSaveDailyGoal}
+                  />
+                </Suspense>
               ) : null
             ) : activeView === 'calendar' ? (
-              <CalendarView
-                todos={todos}
-                isOverdue={isOverdue}
-                onEdit={handleCalendarEdit}
-              />
+              <Suspense fallback={<p role="status">Loading calendar…</p>}>
+                <CalendarView
+                  todos={todos}
+                  isOverdue={isOverdue}
+                  onEdit={handleCalendarEdit}
+                />
+              </Suspense>
             ) : activeView === 'kanban' ? (
-              <KanbanBoard
-                todos={todos}
-                isOverdue={isOverdue}
-                updatingIds={updatingTaskIds}
-                onStatusChange={handleKanbanStatusChange}
-                onEdit={handleCalendarEdit}
-                onDelete={handleDelete}
-              />
+              <Suspense fallback={<p role="status">Loading Kanban board…</p>}>
+                <KanbanBoard
+                  todos={todos}
+                  isOverdue={isOverdue}
+                  updatingIds={updatingTaskIds}
+                  onStatusChange={handleKanbanStatusChange}
+                  onEdit={handleCalendarEdit}
+                  onDelete={handleDelete}
+                />
+              </Suspense>
             ) : (
               <>
                 {/* Search, Sort and Filter Controls */}
@@ -1404,8 +1337,6 @@ const buttonStyle = {
 
 const priorityOptions = ['High', 'Medium', 'Low'];
 const categoryOptions = ['Personal', 'Work', 'Shopping', 'Others'];
-const priorityColors = { High: '#dc3545', Medium: '#e3a008', Low: '#198754' };
-
 const selectStyle = {
   boxSizing: 'border-box',
   padding: '8px',
