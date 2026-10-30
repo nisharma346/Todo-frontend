@@ -9,7 +9,7 @@ const PomodoroTimer = lazy(() => import('./PomodoroTimer.jsx'));
 const ProductivityDashboard = lazy(() => import('./ProductivityDashboard.jsx'));
 const TaskAnalytics = lazy(() => import('./TaskAnalytics.jsx'));
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://todo-miniproject-agef.vercel.app/api';
 const recurrenceOptions = [
   { value: 'none', label: 'Does Not Repeat' },
   { value: 'daily', label: 'Daily' },
