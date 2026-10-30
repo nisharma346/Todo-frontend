@@ -23,6 +23,7 @@ function App() {
   const [mode, setMode] = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [token, setToken] = useState(localStorage.getItem('todoToken') || '');
   const [todayStr, setTodayStr] = useState(
     () => new Date().toISOString().slice(0, 10)
@@ -234,6 +235,18 @@ function App() {
     e.preventDefault();
     setMessage('');
 
+    // Confirm password check for signup
+    if (mode === 'signup') {
+      if (!signupConfirmPassword) {
+        setMessage('Please fill in the Confirm Password field!');
+        return;
+      }
+      if (password !== signupConfirmPassword) {
+        setMessage('Password and Confirm Password do not match!');
+        return;
+      }
+    }
+
     try {
       const data = await request(
         mode === 'signup' ? '/auth/signup' : '/auth/login',
@@ -244,7 +257,8 @@ function App() {
       );
 
       if (mode === 'signup') {
-        setMessage('Signup successful! Ab Login par click karke login karo.');
+        setMessage('Signup successful! Please click Login to sign in.');
+        setSignupConfirmPassword('');
         setMode('login');
       } else {
         localStorage.setItem('todoToken', data.token);
@@ -262,7 +276,7 @@ function App() {
     e.preventDefault();
 
     if (!taskInput.trim()) {
-      setMessage('Pehle task likho.');
+      setMessage('Please enter a task first.');
       return;
     }
 
@@ -285,7 +299,7 @@ function App() {
       setTaskPriority('Medium');
       setTaskDueDate('');
       setTaskRecurrence('none');
-      setMessage('Task successfully add ho gaya!');
+      setMessage('Task added successfully!');
       await fetchTodos();
     } catch (error) {
       setMessage(error.message);
@@ -386,7 +400,7 @@ function App() {
   const handleDelete = async (id) => {
     try {
       await request(`/todos/${id}`, { method: 'DELETE' });
-      setMessage('Task delete ho gaya!');
+      setMessage('Task deleted successfully!');
       await fetchTodos();
     } catch (error) {
       setMessage(error.message);
@@ -409,7 +423,7 @@ function App() {
 
   const handleSaveEdit = async (id) => {
     if (!editTask.trim()) {
-      setMessage('Task ka naam khaali nahi ho sakta.');
+      setMessage('Task name cannot be empty.');
       return;
     }
 
@@ -433,7 +447,7 @@ function App() {
       setEditPriority('Medium');
       setEditDueDate('');
       setEditRecurrence('none');
-      setMessage('Task successfully update ho gaya!');
+      setMessage('Task updated successfully!');
       await fetchTodos();
     } catch (error) {
       setMessage(error.message);
@@ -460,6 +474,7 @@ function App() {
     setProductivityError('');
     setUsername('');
     setPassword('');
+    setSignupConfirmPassword('');
     setSearchText('');
     setFilterStatus('all');
     setTaskDescription('');
@@ -479,7 +494,7 @@ function App() {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setMessage('Logout successful.');
+    setMessage('Logged out successfully.');
   };
 
   // ── Profile helpers ───────────────────────────────────────────────────────
@@ -511,15 +526,15 @@ function App() {
     setProfileMessage('');
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setProfileMessage('Sabhi fields bharein.');
+      setProfileMessage('Please fill in all fields.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setProfileMessage('Naya password aur confirm password match nahi karte!');
+      setProfileMessage('New password and confirm password do not match!');
       return;
     }
     if (newPassword.length < 6) {
-      setProfileMessage('Naya password kam se kam 6 characters ka hona chahiye.');
+      setProfileMessage('New password must be at least 6 characters long.');
       return;
     }
 
@@ -674,59 +689,176 @@ function App() {
       }}>
         {!token ? (
           <>
-            <h2 style={{ textAlign: 'center' }}>
-              {mode === 'login' ? 'Login' : 'Create Account'}
-            </h2>
+            {/* ── Auth Card ─────────────────────────────────────────────── */}
+            <div style={{
+              background: 'var(--card-bg, #fff)',
+              borderRadius: '12px',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+              padding: '36px 32px 28px',
+              maxWidth: '420px',
+              margin: '0 auto',
+            }}>
+              {/* Tab switcher */}
+              <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', marginBottom: '28px', border: '1.5px solid #3730a3' }}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setMessage(''); setSignupConfirmPassword(''); }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    background: mode === 'login' ? '#3730a3' : 'transparent',
+                    color: mode === 'login' ? '#fff' : '#3730a3',
+                    border: 'none',
+                    fontWeight: '700',
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  🔑 Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMode('signup'); setMessage(''); setPassword(''); setSignupConfirmPassword(''); }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    background: mode === 'signup' ? '#3730a3' : 'transparent',
+                    color: mode === 'signup' ? '#fff' : '#3730a3',
+                    border: 'none',
+                    fontWeight: '700',
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  📝 Sign Up
+                </button>
+              </div>
 
-            <form onSubmit={handleAuth}>
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Username"
-                autoComplete="username"
-                required
-                className="todo-input"
-                style={inputStyle}
-              />
+              <h2 style={{ textAlign: 'center', marginTop: 0, marginBottom: '22px', fontSize: '22px', color: 'var(--text, #1e293b)' }}>
+                {mode === 'login' ? 'Welcome Back! 👋' : 'Create Account ✨'}
+              </h2>
 
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                required
-                className="todo-input"
-                style={inputStyle}
-              />
+              <form onSubmit={handleAuth}>
+                {/* Username */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '5px', color: 'var(--text-muted, #475569)' }}>
+                    Username
+                  </label>
+                  <input
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your username"
+                    autoComplete="username"
+                    required
+                    className="todo-input"
+                    style={{ ...inputStyle, marginBottom: 0 }}
+                  />
+                </div>
 
-              <button type="submit" style={buttonStyle}>
-                {mode === 'login' ? 'Login' : 'Sign Up'}
-              </button>
-            </form>
+                {/* Password */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '5px', color: 'var(--text-muted, #475569)' }}>
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    required
+                    className="todo-input"
+                    style={{ ...inputStyle, marginBottom: 0 }}
+                  />
+                </div>
 
-            <p style={{ textAlign: 'center' }}>
-              {mode === 'login' ? 'Account nahi hai?' : 'Pehle se account hai?'}{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(mode === 'login' ? 'signup' : 'login');
-                  setMessage('');
-                }}
-              >
-                {mode === 'login' ? 'Sign Up' : 'Login'}
-              </button>
-            </p>
+                {/* Confirm Password — shown only on Signup */}
+                {mode === 'signup' && (
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '5px', color: 'var(--text-muted, #475569)' }}>
+                      Confirm Password
+                    </label>
+                    <input
+                      type="password"
+                      value={signupConfirmPassword}
+                      onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                      placeholder="Re-enter your password"
+                      autoComplete="new-password"
+                      required
+                      className="todo-input"
+                      style={{
+                        ...inputStyle,
+                        marginBottom: 0,
+                        borderColor: signupConfirmPassword && password !== signupConfirmPassword ? '#ef4444' : undefined,
+                      }}
+                    />
+                    {signupConfirmPassword && password !== signupConfirmPassword && (
+                      <p style={{ color: '#ef4444', fontSize: '12px', margin: '4px 0 0 2px' }}>
+                        ⚠️ Passwords do not match!
+                      </p>
+                    )}
+                    {signupConfirmPassword && password === signupConfirmPassword && (
+                      <p style={{ color: '#22c55e', fontSize: '12px', margin: '4px 0 0 2px' }}>
+                        ✅ Passwords match!
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  style={{ ...buttonStyle, width: '100%', marginTop: '8px', padding: '11px', fontSize: '15px', borderRadius: '8px' }}
+                >
+                  {mode === 'login' ? '🔑 Login' : '📝 Create Account'}
+                </button>
+              </form>
+
+              {/* Switch mode link */}
+              <p style={{ textAlign: 'center', marginTop: '18px', fontSize: '14px', color: 'var(--text-muted, #64748b)' }}>
+                {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode(mode === 'login' ? 'signup' : 'login');
+                    setMessage('');
+                    setPassword('');
+                    setSignupConfirmPassword('');
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#3730a3', fontWeight: '700', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline', padding: 0 }}
+                >
+                  {mode === 'login' ? 'Sign Up' : 'Log In'}
+                </button>
+              </p>
+
+              {/* Message display inside card */}
+              {message && (
+                <p role="status" style={{
+                  marginTop: '12px',
+                  padding: '10px 14px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  background: message.toLowerCase().includes('successful') ? '#dcfce7' : '#fee2e2',
+                  color: message.toLowerCase().includes('successful') ? '#166534' : '#991b1b',
+                  border: `1px solid ${message.toLowerCase().includes('successful') ? '#86efac' : '#fca5a5'}`,
+                  overflowWrap: 'anywhere',
+                  margin: '12px 0 0 0',
+                }}>
+                  {message.toLowerCase().includes('successful') ? '✅ ' : '⚠️ '}{message}
+                </p>
+              )}
+            </div>
           </>
         ) : (
           <>
-            <h3 className="task-section-heading">Naya Task Jodein</h3>
+            <h3 className="task-section-heading">Add New Task</h3>
 
             <form onSubmit={handleAddTask} className="task-form">
               <input
                 value={taskInput}
                 onChange={(e) => setTaskInput(e.target.value)}
-                placeholder="Yahan task likho..."
+                placeholder="Enter task here..."
                 className="todo-input"
                 style={{ ...inputStyle, flex: '1 1 160px', marginBottom: 0 }}
               />
@@ -885,7 +1017,7 @@ function App() {
                   <p style={{
                     marginTop: '10px',
                     fontSize: '13px',
-                    color: profileMessage.includes('safal') || profileMessage.includes('successfully') ? '#198754' : '#dc3545',
+                    color: profileMessage.includes('successfully') ? '#198754' : '#dc3545',
                     wordBreak: 'break-word',
                   }} role="status">
                     {profileMessage}
@@ -1307,7 +1439,7 @@ function App() {
           </>
         )}
 
-        {message && (
+        {message && token && (
           <p role="status" style={{ marginTop: '16px', overflowWrap: 'anywhere' }}>
             {message}
           </p>
